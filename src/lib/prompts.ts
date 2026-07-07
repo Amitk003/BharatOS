@@ -30,13 +30,13 @@ export function getClarificationPrompt(
   return `User goal: "${goal}"
 User profile: ${JSON.stringify(profile, null, 2)}
 
-Determine if you need more information before creating a journey plan. If yes, list questions you need answers to.
+Determine if you need more information before creating a journey plan. Ask only essential questions (max 4).
+
+Keep each question very short and direct. Examples: "Your age?" "Your location?" "Land size?" "Budget?"
 
 Return JSON: { "needsClarification": boolean, "questions": string[] }
 
-If profile already has enough details (age, location, occupation), set needsClarification to false.
-
-Use the same language as the user's goal message.`;
+If profile already has enough details (age, location, occupation), set needsClarification to false.`;
 }
 
 export function getJourneyPrompt(

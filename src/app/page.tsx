@@ -16,13 +16,19 @@ import {
   Bot,
   User,
   Send,
-  Loader2,
   ChevronLeft,
+  HelpCircle,
 } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+}
+
+interface ClarifyingForm {
+  questions: string[];
+  answers: string[];
+  goal: string;
 }
 
 const CATEGORIES = [
@@ -67,6 +73,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [mode, setMode] = useState<"landing" | "chat">("landing");
+  const [clarifyingForm, setClarifyingForm] = useState<ClarifyingForm | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -84,13 +91,14 @@ export default function Home() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, clarifyingForm]);
 
   async function handleSend(overrideMsg?: string) {
     const msg = overrideMsg || query;
     if (!msg.trim() || loading || !sessionId) return;
 
     setQuery("");
+    setClarifyingForm(null);
     setMessages((prev) => [...prev, { role: "user", content: msg }]);
     setLoading(true);
 
@@ -101,12 +109,21 @@ export default function Home() {
         body: JSON.stringify({ message: msg, sessionId }),
       });
       const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.message || "I could not process that." },
-      ]);
-      if (data.journeyId) {
-        setTimeout(() => router.push("/dashboard"), 1500);
+
+      if (data.clarifyingQuestions && data.clarifyingQuestions.length > 0) {
+        setClarifyingForm({
+          questions: data.clarifyingQuestions,
+          answers: new Array(data.clarifyingQuestions.length).fill(""),
+          goal: msg,
+        });
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.message || "I could not process that." },
+        ]);
+        if (data.journeyId) {
+          setTimeout(() => router.push("/dashboard"), 1500);
+        }
       }
     } catch {
       setMessages((prev) => [
@@ -116,6 +133,63 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleAnswerChange(index: number, value: string) {
+    if (!clarifyingForm) return;
+    const updated = [...clarifyingForm.answers];
+    updated[index] = value;
+    setClarifyingForm({ ...clarifyingForm, answers: updated });
+  }
+
+  function submitAnswers() {
+    if (!clarifyingForm || !sessionId) return;
+
+    const filledAnswers = clarifyingForm.answers.filter((a) => a.trim()).length;
+    if (filledAnswers === 0) return;
+
+    const combined = `${clarifyingForm.goal}. ${clarifyingForm.questions
+      .map((q, i) => {
+        const ans = clarifyingForm.answers[i]?.trim();
+        return ans ? `${q.replace(/\?$/, "")}: ${ans}` : null;
+      })
+      .filter(Boolean)
+      .join(". ")}`;
+
+    setClarifyingForm(null);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "user",
+        content: clarifyingForm.answers
+          .map((a, i) => `${clarifyingForm.questions[i]} ${a}`)
+          .join("\n"),
+      },
+    ]);
+    setLoading(true);
+
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: combined, sessionId }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.message || "I could not process that." },
+        ]);
+        if (data.journeyId) {
+          setTimeout(() => router.push("/dashboard"), 1500);
+        }
+      })
+      .catch(() => {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Something went wrong. Try again." },
+        ]);
+      })
+      .finally(() => setLoading(false));
   }
 
   function startChat(goal: string) {
@@ -128,7 +202,7 @@ export default function Home() {
     return (
       <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-4xl flex-col px-4 py-6">
         <button
-          onClick={() => { setMode("landing"); setMessages([]); }}
+          onClick={() => { setMode("landing"); setMessages([]); setClarifyingForm(null); }}
           className="mb-4 flex items-center gap-1.5 text-sm text-gray-500 hover:text-white transition-colors w-fit"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -161,7 +235,74 @@ export default function Home() {
               </div>
             </div>
           ))}
-          {loading && (
+
+          {clarifyingForm && (
+            <div className="flex justify-start">
+              <div className="flex items-start gap-3 max-w-[85%]">
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600/20">
+                  <Bot className="h-4 w-4 text-blue-500" />
+                </div>
+                <div className="rounded-2xl rounded-bl-sm border border-blue-900/50 bg-gray-900/80 px-5 py-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 text-blue-500" />
+                    <span className="text-sm font-medium text-blue-400">
+                      A few details to get started
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {clarifyingForm.questions.map((q, i) => (
+                      <div key={i}>
+                        <label className="mb-1 block text-xs text-gray-400">
+                          {q}
+                        </label>
+                        <input
+                          type="text"
+                          value={clarifyingForm.answers[i]}
+                          onChange={(e) => handleAnswerChange(i, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const next = document.querySelector<HTMLInputElement>(
+                                `[data-qidx="${i + 1}"]`
+                              );
+                              if (next) next.focus();
+                            }
+                          }}
+                          data-qidx={String(i)}
+                          placeholder="Type your answer..."
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={submitAnswers}
+                    disabled={
+                      loading ||
+                      !clarifyingForm.answers.some((a) => a.trim())
+                    }
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  >
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white [animation-delay:0.15s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white [animation-delay:0.3s]" />
+                        Processing...
+                      </span>
+                    ) : (
+                      <>
+                        Continue
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {loading && !clarifyingForm && (
             <div className="flex justify-start">
               <div className="flex items-start gap-3">
                 <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600/20">
@@ -177,6 +318,7 @@ export default function Home() {
               </div>
             </div>
           )}
+
           <div ref={bottomRef} />
         </div>
 
