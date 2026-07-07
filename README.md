@@ -28,21 +28,48 @@ Instead of searching through confusing government websites, you tell BharatOS wh
 - **AI:** Google Gemini 2.0 Flash
 - **Deployment:** Vercel
 
-## How to Run
+## How to Run (Local Development)
 
 1. Clone the repo
 2. Copy `.env.example` to `.env` and add your `GEMINI_API_KEY`
 3. Run `npm install`
-4. Run `npx prisma migrate dev`
-5. Run `npm run dev`
-6. Open http://localhost:3000
+4. Run `npx prisma generate`
+5. Run `npx prisma migrate dev`
+6. Run `npm run dev`
+7. Open http://localhost:3000
+
+## Deploy to Production
+
+### Option 1: Vercel + Neon Postgres (Recommended)
+
+1. Push the code to your GitHub repository
+2. Create a free account on [Neon](https://neon.tech) and create a Postgres database
+3. Get your `DATABASE_URL` from Neon dashboard
+4. Go to [Vercel](https://vercel.com) and import your GitHub repo
+5. Add these environment variables in Vercel:
+   - `DATABASE_URL` - your Neon Postgres connection string
+   - `GEMINI_API_KEY` - your Google Gemini API key
+6. Deploy
+
+### Option 2: Any Node.js Hosting (SQLite)
+
+If your hosting platform supports persistent storage, you can use SQLite:
+1. Set `DATABASE_URL=file:./data.db` in environment
+2. Run `npm run build` and `npm start`
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | SQLite database path (default: `file:./dev.db`) |
+| `DATABASE_URL` | Database connection string (`file:./dev.db` for SQLite, or Postgres URL for production) |
 | `GEMINI_API_KEY` | Your Google Gemini API key |
+
+## Running Tests
+
+```bash
+npm test            # Unit tests (Vitest)
+npm run test:e2e    # E2E tests (Playwright) - requires dev server running
+```
 
 ## Project Structure
 
