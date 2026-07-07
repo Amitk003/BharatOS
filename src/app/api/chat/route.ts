@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           message:
-            "BharatOS AI is not configured yet. Please set the GEMINI_API_KEY environment variable to enable AI features. You can get a key from https://aistudio.google.com",
+            "BharatOS AI is not configured yet. Please set the GROQ_API_KEY environment variable to enable AI features. You can get a key from https://console.groq.com",
         },
         { status: 200 }
       );
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        message: `AI service error: ${detail}. Check that your GEMINI_API_KEY is valid and the model name is correct.`,
+        message: `AI service error: ${detail}. Check that your GROQ_API_KEY is valid.`,
       },
       { status: 200 }
     );

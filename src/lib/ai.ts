@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 import {
   JourneySchema,
   DocumentValidationSchema,
@@ -23,15 +23,15 @@ import {
   getLanguageDetectionPrompt,
 } from "./prompts";
 
-function getClient(): GoogleGenAI | null {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key || key === "your-google-gemini-api-key") {
+function getClient(): Groq | null {
+  const key = process.env.GROQ_API_KEY;
+  if (!key || key === "your-groq-api-key") {
     return null;
   }
-  return new GoogleGenAI({ apiKey: key });
+  return new Groq({ apiKey: key });
 }
 
-const MODEL = "gemini-2.0-flash";
+const MODEL = "llama-3.3-70b-versatile";
 
 class AIServiceError extends Error {
   constructor(
@@ -51,24 +51,24 @@ async function generateJSON<T>(
   const client = getClient();
   if (!client) {
     throw new AIServiceError(
-      "AI service is not configured. Please set the GEMINI_API_KEY environment variable.",
+      "AI service is not configured. Please set the GROQ_API_KEY environment variable.",
       "NO_API_KEY"
     );
   }
 
   try {
-    const response = await client.models.generateContent({
+    const response = await client.chat.completions.create({
       model: MODEL,
-      contents: prompt,
-      config: {
-        systemInstruction: systemInstruction || SYSTEM_PROMPT,
-        temperature: 0.2,
-        topP: 0.8,
-        topK: 40,
-      },
+      messages: [
+        { role: "system", content: systemInstruction || SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+      max_tokens: 2000,
     });
 
-    const text = response.text;
+    const text = response.choices[0]?.message?.content;
     if (!text) {
       throw new AIServiceError("Empty response from AI", "API_ERROR");
     }
@@ -96,16 +96,20 @@ export async function testConnection(): Promise<{
 }> {
   const client = getClient();
   if (!client) {
-    return { ok: false, message: "GEMINI_API_KEY is not set in environment" };
+    return { ok: false, message: "GROQ_API_KEY is not set in environment" };
   }
   try {
-    const response = await client.models.generateContent({
+    const response = await client.chat.completions.create({
       model: MODEL,
-      contents: "Say just OK if you can read this",
-      config: { temperature: 0.1 },
+      messages: [
+        { role: "user", content: "Say just OK if you can read this" },
+      ],
+      temperature: 0.1,
+      max_tokens: 10,
     });
-    if (response.text) {
-      return { ok: true, message: "Connected. Response: " + response.text };
+    const text = response.choices[0]?.message?.content;
+    if (text) {
+      return { ok: true, message: "Connected. Response: " + text.trim() };
     }
     return { ok: false, message: "Empty response from API" };
   } catch (error) {
@@ -169,32 +173,27 @@ export async function generateChatResponse(
   const client = getClient();
   if (!client) {
     throw new AIServiceError(
-      "AI service is not configured. Please set the GEMINI_API_KEY environment variable.",
+      "AI service is not configured. Please set the GROQ_API_KEY environment variable.",
       "NO_API_KEY"
     );
   }
 
   try {
-    const response = await client.models.generateContent({
+    const response = await client.chat.completions.create({
       model: MODEL,
-      contents: [
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          parts: [
-            {
-              text: `Context:\n${context}\n\nUser message: ${userMessage}\n\nRespond helpfully and conversationally in the same language as the user message. Keep response under 100 words.`,
-            },
-          ],
+          content: `Context:\n${context}\n\nUser message: ${userMessage}\n\nRespond helpfully and conversationally in the same language as the user message. Keep response under 100 words. Do NOT use JSON format. Just respond normally.`,
         },
       ],
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        temperature: 0.7,
-      },
+      temperature: 0.7,
+      max_tokens: 500,
     });
 
     return (
-      response.text ||
+      response.choices[0]?.message?.content ||
       "I could not process that. Please try again."
     );
   } catch (error) {
