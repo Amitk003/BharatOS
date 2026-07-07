@@ -50,7 +50,7 @@ export default function DashboardPage() {
         });
         const data = await res.json();
         const j = data.journeys || [];
-        setActiveJourneys(j.filter((j: any) => j.status !== "COMPLETED").length);
+        setActiveJourneys(j.filter((j: { status: string }) => j.status !== "COMPLETED").length);
       })(),
       (async () => {
         const res = await fetch("/api/documents", {

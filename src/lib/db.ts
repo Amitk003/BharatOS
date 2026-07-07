@@ -11,14 +11,6 @@ export async function getOrCreateUser(phone: string) {
   return user;
 }
 
-export async function getUserWithProfile(userId: string) {
-  const prisma = await getPrisma();
-  return prisma.user.findUnique({
-    where: { id: userId },
-    include: { profile: true },
-  });
-}
-
 export async function createOrUpdateProfile(
   userId: string,
   data: {

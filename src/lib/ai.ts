@@ -1,13 +1,8 @@
 import Groq from "groq-sdk";
 import {
   JourneySchema,
-  DocumentValidationSchema,
   OpportunitySchema,
-  IntentSchema,
-  ClarifyingQuestionSchema,
-  LanguageSchema,
   type JourneyPlan,
-  type DocumentValidation,
   type OpportunityResult,
   type ClassifiedIntent,
   type ClarifyingQuestions,
@@ -18,7 +13,6 @@ import {
   getIntentPrompt,
   getClarificationPrompt,
   getJourneyPrompt,
-  getDocumentPrompt,
   getOpportunityPrompt,
   getLanguageDetectionPrompt,
 } from "./prompts";
@@ -147,15 +141,6 @@ export async function generateJourney(
   const prompt = getJourneyPrompt(goal, profile);
   const result = await generateJSON<JourneyPlan>(prompt);
   return JourneySchema.parse(result);
-}
-
-export async function validateDocument(
-  extractedText: string,
-  profile: Record<string, unknown>
-): Promise<DocumentValidation> {
-  const prompt = getDocumentPrompt(extractedText, profile);
-  const result = await generateJSON<DocumentValidation>(prompt);
-  return DocumentValidationSchema.parse(result);
 }
 
 export async function findOpportunities(

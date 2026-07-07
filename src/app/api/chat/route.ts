@@ -132,10 +132,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: response,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Chat API error:", error);
 
-    if (error?.code === "NO_API_KEY") {
+    const err = error as { code?: string; detail?: string; message?: string };
+    if (err?.code === "NO_API_KEY") {
       return NextResponse.json(
         {
           message:
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const detail = error?.detail || error?.message || "Unknown error";
+    const detail = err?.detail || err?.message || "Unknown error";
     console.error("Chat error detail:", detail);
 
     return NextResponse.json(

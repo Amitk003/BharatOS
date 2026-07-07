@@ -5,7 +5,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 async function createPrismaClient(): Promise<PrismaClient> {
-  const url = process.env.DATABASE_URL || "file:./dev.db";
+  const url = process.env.DATABASE_URL || "file:./data/dev.db";
 
   if (url.startsWith("postgresql") || url.startsWith("postgres")) {
     const { PrismaNeon } = await import("@prisma/adapter-neon");

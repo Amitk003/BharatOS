@@ -21,10 +21,11 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({ opportunities });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Opportunities error:", error);
 
-    if (error?.code === "NO_API_KEY") {
+    const apiErr = error as { code?: string };
+    if (apiErr?.code === "NO_API_KEY") {
       return NextResponse.json({ opportunities: null });
     }
 

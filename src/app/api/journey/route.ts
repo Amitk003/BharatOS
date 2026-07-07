@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest) {
 
     const task = await updateTaskStatus(taskId, status);
 
-    const journey = await recalculateJourneyProgress(task.journeyId);
+    await recalculateJourneyProgress(task.journeyId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
