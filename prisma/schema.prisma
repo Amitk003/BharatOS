@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  profile   CitizenProfile?
+  journeys  Journey[]
+  documents Document[]
+  cases     CivicCase[]
+}
+
+model CitizenProfile {
+  id               String @id @default(cuid())
+  userId           String @unique
+  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  age              Int    @default(0)
+  occupation       String?
+  monthlyIncome    Float?
+  education        String?
+  disabilityStatus Boolean @default(false)
+  maritalStatus    String @default("Single")
+  locationState    String?
+  hasLand          Boolean @default(false)
+  language         String @default("en")
+  benefitsClaimed  String?
+  dynamicData      String?
+}
+
+model Journey {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      String   @default("IN_PROGRESS")
+  progress    Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tasks       Task[]
+}
+
+model Task {
+  id           String   @id @default(cuid())
+  journeyId    String
+  journey      Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  status       String   @default("PENDING")
+  order        Int
+  linkUrl      String?
+  documentType String?
+}
+
+model Document {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  type          String
+  fileUrl       String
+  status        String    @default("PENDING")
+  extractedData String?
+  errorDetails  String?
+  verifiedAt    DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model CivicCase {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      String   @default("SUBMITTED")
+  category    String?
+  timeline    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
