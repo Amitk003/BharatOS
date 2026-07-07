@@ -148,6 +148,12 @@ export default function Home() {
     const filledAnswers = clarifyingForm.answers.filter((a) => a.trim()).length;
     if (filledAnswers === 0) return;
 
+    const profileAnswers: Record<string, string> = {};
+    clarifyingForm.questions.forEach((q, i) => {
+      const ans = clarifyingForm.answers[i]?.trim();
+      if (ans) profileAnswers[q] = ans;
+    });
+
     const combined = `${clarifyingForm.goal}. ${clarifyingForm.questions
       .map((q, i) => {
         const ans = clarifyingForm.answers[i]?.trim();
@@ -171,7 +177,12 @@ export default function Home() {
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: combined, sessionId }),
+      body: JSON.stringify({
+        message: combined,
+        sessionId,
+        skipClarifying: true,
+        profileAnswers,
+      }),
     })
       .then((res) => res.json())
       .then((data) => {

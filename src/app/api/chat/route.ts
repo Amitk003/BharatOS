@@ -15,7 +15,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, sessionId } = await req.json();
+    const { message, sessionId, skipClarifying, profileAnswers } = await req.json();
 
     if (!message || !sessionId) {
       return NextResponse.json(
@@ -36,10 +36,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (profileAnswers && typeof profileAnswers === "object") {
+      const updateData: Record<string, unknown> = {};
+      for (const [q, a] of Object.entries(profileAnswers)) {
+        const val = String(a).trim();
+        if (!val) continue;
+        const qLower = q.toLowerCase();
+        if (qLower.includes("age")) { const n = parseInt(val); if (!isNaN(n)) updateData.age = n; }
+        else if (qLower.includes("location") || qLower.includes("state") || qLower.includes("city") || qLower.includes("district") || qLower.includes("village")) { updateData.locationState = val; }
+        else if (qLower.includes("occupation") || qLower.includes("job") || qLower.includes("work") || qLower.includes("profession") || qLower.includes("do you do")) { updateData.occupation = val; }
+        else if (qLower.includes("income") || qLower.includes("salary") || qLower.includes("earn") || qLower.includes("monthly")) { const n = parseFloat(val.replace(/[^0-9.]/g, "")); if (!isNaN(n)) updateData.monthlyIncome = n; }
+        else if (qLower.includes("land") || qLower.includes("acre") || qLower.includes("hectare")) { updateData.hasLand = true; }
+        else if (qLower.includes("education") || qLower.includes("study") || qLower.includes("school")) { updateData.education = val; }
+      }
+      if (Object.keys(updateData).length > 0) {
+        await createOrUpdateProfile(user.id, updateData as any);
+        profile = await getProfileData(user.id);
+      }
+    }
+
     const intent = await classifyIntent(message);
 
     if (intent.intent === "JOURNEY_GOAL") {
-      if (!profile || !profile.locationState || !profile.age) {
+      if (!skipClarifying && (!profile || !profile.locationState || !profile.age)) {
         const clarification = await getClarifyingQuestions(
           message,
           (profile as Record<string, unknown>) || {}
