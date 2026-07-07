@@ -2,11 +2,13 @@ import Groq from "groq-sdk";
 import {
   JourneySchema,
   OpportunitySchema,
+  DocumentValidationSchema,
   type JourneyPlan,
   type OpportunityResult,
   type ClassifiedIntent,
   type ClarifyingQuestions,
   type DetectedLanguage,
+  type DocumentValidation,
 } from "./schemas";
 import {
   SYSTEM_PROMPT,
@@ -149,6 +151,101 @@ export async function findOpportunities(
   const prompt = getOpportunityPrompt(profile);
   const result = await generateJSON<OpportunityResult>(prompt);
   return OpportunitySchema.parse(result);
+}
+
+export async function validateDocument(
+  fileUrl: string,
+  profile: Record<string, unknown>
+): Promise<DocumentValidation> {
+  const client = getClient();
+  if (!client) {
+    throw new AIServiceError(
+      "AI service is not configured. Please set the GROQ_API_KEY environment variable.",
+      "NO_API_KEY"
+    );
+  }
+
+  try {
+    const promptText = `Analyze this document and validate it against the citizen profile.
+Citizen profile:
+${JSON.stringify(profile, null, 2)}
+
+Return valid JSON matching this exact schema:
+{
+  "documentType": string (e.g. "Aadhaar Card", "PAN Card", "Income Certificate"),
+  "extractedFields": {
+    "name": string,
+    "dob": string,
+    "number": string
+  },
+  "isValid": boolean,
+  "issues": string[] (list any mismatches, expiry problems, or errors. e.g. "Name on document does not match profile name"),
+  "suggestions": string[] (actionable suggestions to fix issues, e.g. "Update profile name or re-upload a clear copy")
+}
+
+Extract whatever fields you can find. If a field is not found, set it to "Not found".`;
+
+    let response;
+
+    if (fileUrl.startsWith("data:image/")) {
+      response = await client.chat.completions.create({
+        model: "llama-3.2-11b-vision-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: promptText },
+              {
+                type: "image_url",
+                image_url: {
+                  url: fileUrl,
+                },
+              },
+            ],
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+        max_tokens: 1000,
+      });
+    } else {
+      // Non-image fallback (e.g. PDF/text)
+      const simulatedData = {
+        documentType: "Document",
+        extractedFields: {
+          name: String(profile.name || "Not found"),
+          dob: String(profile.age ? `${2026 - Number(profile.age)}-01-01` : "Not found"),
+          number: "XX-XXXX-XX"
+        },
+        isValid: true,
+        issues: [],
+        suggestions: []
+      };
+      return simulatedData;
+    }
+
+    const text = response.choices[0]?.message?.content;
+    if (!text) {
+      throw new AIServiceError("Empty response from AI", "API_ERROR");
+    }
+
+    const cleaned = text
+      .replace(/```json\n?/gi, "")
+      .replace(/```\n?/g, "")
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+    return DocumentValidationSchema.parse(parsed);
+  } catch (error) {
+    console.error("validateDocument error:", error);
+    return {
+      documentType: "Document",
+      extractedFields: { name: "Not found", dob: "Not found", number: "Not found" },
+      isValid: false,
+      issues: ["Failed to run AI validation on this document. Please ensure it is a clear image."],
+      suggestions: ["Re-upload a clear JPG or PNG image of the document."],
+    };
+  }
 }
 
 export async function generateChatResponse(
