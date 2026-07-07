@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  classifyIntent,
-  detectLanguage,
-  getClarifyingQuestions,
+  analyzeMessage,
   generateJourney,
   generateChatResponse,
 } from "@/lib/ai";
@@ -12,6 +10,96 @@ import {
   getProfileData,
   createJourney,
 } from "@/lib/db";
+
+// Helper function to extract profile fields from unstructured QA answers
+function extractProfileFromAnswers(profileAnswers: Record<string, string>): Record<string, any> {
+  const updateData: Record<string, any> = {};
+  for (const [q, a] of Object.entries(profileAnswers)) {
+    const val = String(a).trim();
+    if (!val) continue;
+    const qLower = q.toLowerCase();
+    
+    if (
+      qLower.includes("age") ||
+      qLower.includes("umar") ||
+      qLower.includes("उम्र") ||
+      qLower.includes("vay") ||
+      qLower.includes("वय") ||
+      qLower.includes("old")
+    ) {
+      const n = parseInt(val);
+      if (!isNaN(n)) updateData.age = n;
+    } else if (
+      qLower.includes("location") ||
+      qLower.includes("state") ||
+      qLower.includes("city") ||
+      qLower.includes("district") ||
+      qLower.includes("village") ||
+      qLower.includes("shahar") ||
+      qLower.includes("raajya") ||
+      qLower.includes("गांव") ||
+      qLower.includes("शहर") ||
+      qLower.includes("राज्य") ||
+      qLower.includes("jila") ||
+      qLower.includes("zilla")
+    ) {
+      updateData.locationState = val;
+    } else if (
+      qLower.includes("occupation") ||
+      qLower.includes("job") ||
+      qLower.includes("work") ||
+      qLower.includes("profession") ||
+      qLower.includes("do you do") ||
+      qLower.includes("pesha") ||
+      qLower.includes("पेशा") ||
+      qLower.includes("kaam") ||
+      qLower.includes("काम") ||
+      qLower.includes("vyavsay") ||
+      qLower.includes("व्यवसाय")
+    ) {
+      updateData.occupation = val;
+    } else if (
+      qLower.includes("income") ||
+      qLower.includes("salary") ||
+      qLower.includes("earn") ||
+      qLower.includes("monthly") ||
+      qLower.includes("aay") ||
+      qLower.includes("आय") ||
+      qLower.includes("kamai") ||
+      qLower.includes("कमाई") ||
+      qLower.includes("varshik")
+    ) {
+      const n = parseFloat(val.replace(/[^0-9.]/g, ""));
+      if (!isNaN(n)) updateData.monthlyIncome = n;
+    } else if (
+      qLower.includes("land") ||
+      qLower.includes("acre") ||
+      qLower.includes("hectare") ||
+      qLower.includes("zameen") ||
+      qLower.includes("ज़मीन") ||
+      qLower.includes("जमीन") ||
+      qLower.includes("bhoomi") ||
+      qLower.includes("भूमि") ||
+      qLower.includes("khet") ||
+      qLower.includes("खेत")
+    ) {
+      updateData.hasLand = true;
+    } else if (
+      qLower.includes("education") ||
+      qLower.includes("study") ||
+      qLower.includes("school") ||
+      qLower.includes("shiksha") ||
+      qLower.includes("शिक्षा") ||
+      qLower.includes("padhai") ||
+      qLower.includes("पढ़ाई") ||
+      qLower.includes("college") ||
+      qLower.includes("vidya")
+    ) {
+      updateData.education = val;
+    }
+  }
+  return updateData;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,57 +113,38 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await getOrCreateUser(sessionId);
-
     let profile = await getProfileData(user.id);
 
-    const langInfo = await detectLanguage(message);
+    // Single Consolidated AI call for Intent, Language, and Clarification
+    const analysis = await analyzeMessage(message, (profile || {}) as Record<string, unknown>);
 
-    if (langInfo.shouldTranslate) {
+    // Handle Language Preferences automatically
+    if (analysis.language.shouldTranslate && (!profile || profile.language !== analysis.language.languageCode)) {
       await createOrUpdateProfile(user.id, {
-        language: langInfo.languageCode,
+        language: analysis.language.languageCode,
       });
+      profile = await getProfileData(user.id);
     }
 
+    // Process Q&A Answers from clarification inputs if present
     if (profileAnswers && typeof profileAnswers === "object") {
-      const updateData: Record<string, unknown> = {};
-      for (const [q, a] of Object.entries(profileAnswers)) {
-        const val = String(a).trim();
-        if (!val) continue;
-        const qLower = q.toLowerCase();
-        if (qLower.includes("age") || qLower.includes("umar") || qLower.includes("उम्र") || qLower.includes("vay") || qLower.includes("वय") || qLower.includes("old")) { const n = parseInt(val); if (!isNaN(n)) updateData.age = n; }
-        else if (qLower.includes("location") || qLower.includes("state") || qLower.includes("city") || qLower.includes("district") || qLower.includes("village") || qLower.includes("shahar") || qLower.includes("raajya") || qLower.includes("गांव") || qLower.includes("शहर") || qLower.includes("राज्य") || qLower.includes("jila") || qLower.includes("zilla")) { updateData.locationState = val; }
-        else if (qLower.includes("occupation") || qLower.includes("job") || qLower.includes("work") || qLower.includes("profession") || qLower.includes("do you do") || qLower.includes("pesha") || qLower.includes("पेशा") || qLower.includes("kaam") || qLower.includes("काम") || qLower.includes("vyavsay") || qLower.includes("व्यवसाय")) { updateData.occupation = val; }
-        else if (qLower.includes("income") || qLower.includes("salary") || qLower.includes("earn") || qLower.includes("monthly") || qLower.includes("aay") || qLower.includes("आय") || qLower.includes("kamai") || qLower.includes("कमाई") || qLower.includes("varshik")) { const n = parseFloat(val.replace(/[^0-9.]/g, "")); if (!isNaN(n)) updateData.monthlyIncome = n; }
-        else if (qLower.includes("land") || qLower.includes("acre") || qLower.includes("hectare") || qLower.includes("zameen") || qLower.includes("ज़मीन") || qLower.includes("जमीन") || qLower.includes("bhoomi") || qLower.includes("भूमि") || qLower.includes("khet") || qLower.includes("खेत")) { updateData.hasLand = true; }
-        else if (qLower.includes("education") || qLower.includes("study") || qLower.includes("school") || qLower.includes("shiksha") || qLower.includes("शिक्षा") || qLower.includes("padhai") || qLower.includes("पढ़ाई") || qLower.includes("college") || qLower.includes("vidya")) { updateData.education = val; }
-      }
+      const updateData = extractProfileFromAnswers(profileAnswers);
       if (Object.keys(updateData).length > 0) {
-        await createOrUpdateProfile(user.id, updateData as any);
+        await createOrUpdateProfile(user.id, updateData);
         profile = await getProfileData(user.id);
       }
     }
 
-    const intent = await classifyIntent(message);
-
-    if (intent.intent === "JOURNEY_GOAL") {
-      if (!skipClarifying && (!profile || !profile.locationState || !profile.age)) {
-        const clarification = await getClarifyingQuestions(
-          message,
-          (profile as Record<string, unknown>) || {}
-        );
-
-        if (clarification.needsClarification) {
-          return NextResponse.json({
-            message: clarification.questions.join("\n"),
-            clarifyingQuestions: clarification.questions,
-          });
-        }
+    // Handle Journey planning intent
+    if (analysis.intent === "JOURNEY_GOAL") {
+      if (!skipClarifying && analysis.clarification.needsClarification) {
+        return NextResponse.json({
+          message: analysis.clarification.questions.join("\n"),
+          clarifyingQuestions: analysis.clarification.questions,
+        });
       }
 
-      const journeyPlan = await generateJourney(message, {
-        ...(profile || {}),
-        goal: message,
-      } as Record<string, unknown>);
+      const journeyPlan = await generateJourney(message, (profile || {}) as Record<string, unknown>);
 
       const journey = await createJourney(
         user.id,
@@ -99,7 +168,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (intent.intent === "COMPLAINT") {
+    // Handle civic infrastucture complaints
+    if (analysis.intent === "COMPLAINT") {
       return NextResponse.json({
         message:
           "I can help you report a civic issue. Please go to the Cases page to file a complaint with details and location.",
@@ -107,12 +177,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (intent.intent === "SCHEME_ELIGIBILITY") {
-      if (!profile) {
-        const clarification = await getClarifyingQuestions(message, {});
+    // Handle welfare scheme matching checks
+    if (analysis.intent === "SCHEME_ELIGIBILITY") {
+      if (!profile || !profile.locationState || !profile.age) {
+        if (analysis.clarification.needsClarification) {
+          return NextResponse.json({
+            message: analysis.clarification.questions.join("\n"),
+            clarifyingQuestions: analysis.clarification.questions,
+          });
+        }
         return NextResponse.json({
-          message: clarification.questions.join("\n"),
-          clarifyingQuestions: clarification.questions,
+          message: "Please tell me your age, state, and monthly income to check eligibility.",
+          clarifyingQuestions: ["Your Age?", "Your State?", "Your Monthly Income?"],
         });
       }
 
@@ -123,6 +199,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // General conversational fallback
     const context = profile
       ? `User profile: ${JSON.stringify(profile)}`
       : "New user, no profile yet";

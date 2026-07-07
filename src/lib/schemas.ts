@@ -70,3 +70,25 @@ export const LanguageSchema = z.object({
 });
 
 export type DetectedLanguage = z.infer<typeof LanguageSchema>;
+
+export const MessageAnalysisSchema = z.object({
+  language: z.object({
+    name: z.string(),
+    languageCode: z.string(),
+    shouldTranslate: z.boolean(),
+  }),
+  intent: z.enum([
+    "JOURNEY_GOAL",
+    "DOCUMENT_QUERY",
+    "COMPLAINT",
+    "SCHEME_ELIGIBILITY",
+    "GENERAL",
+  ]),
+  clarification: z.object({
+    needsClarification: z.boolean(),
+    questions: z.array(z.string()),
+  }),
+});
+
+export type MessageAnalysis = z.infer<typeof MessageAnalysisSchema>;
+

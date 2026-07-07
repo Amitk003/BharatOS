@@ -141,14 +141,15 @@ export function JourneyBoard() {
                     <button
                       onClick={() => toggleTask(task.id, task.status)}
                       disabled={updating === task.id}
+                      aria-label={task.status === "COMPLETED" ? `Mark ${task.title} as incomplete` : `Mark ${task.title} as completed`}
                       className="mt-0.5"
                     >
                       {updating === task.id ? (
-                        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                        <Loader2 className="h-5 w-5 animate-spin text-blue-500" aria-hidden="true" />
                       ) : task.status === "COMPLETED" ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <CheckCircle2 className="h-5 w-5 text-green-500" aria-hidden="true" />
                       ) : (
-                        <Circle className="h-5 w-5 text-gray-600" />
+                        <Circle className="h-5 w-5 text-gray-600" aria-hidden="true" />
                       )}
                     </button>
                     <div className="flex-1 min-w-0">
@@ -179,9 +180,10 @@ export function JourneyBoard() {
                         href={task.linkUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        aria-label={`Open external link for ${task.title}`}
                         className="text-gray-500 hover:text-blue-400 transition-colors"
                       >
-                        <ExternalLink className="h-4 w-4" />
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
                       </a>
                     )}
                   </div>

@@ -33,6 +33,7 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors",
                   isActive
@@ -40,7 +41,7 @@ export function Navbar() {
                     : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
                 )}
               >
-                {Icon && <Icon className="h-4 w-4" />}
+                {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
                 {item.label}
               </Link>
             );

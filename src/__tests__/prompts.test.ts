@@ -7,6 +7,7 @@ import {
   getDocumentPrompt,
   getOpportunityPrompt,
   getLanguageDetectionPrompt,
+  getMessageAnalysisPrompt,
 } from "@/lib/prompts";
 
 describe("SYSTEM_PROMPT", () => {
@@ -97,5 +98,15 @@ describe("getClarificationPrompt", () => {
     const prompt = getClarificationPrompt("I want a passport", { age: 0 });
     expect(prompt).toContain("needsClarification");
     expect(prompt).toContain("questions");
+  });
+});
+
+describe("getMessageAnalysisPrompt", () => {
+  it("contains user message and asks for language, intent, and clarification", () => {
+    const prompt = getMessageAnalysisPrompt("Help me apply for Mudra loan", { age: 25 });
+    expect(prompt).toContain("Mudra loan");
+    expect(prompt).toContain("language");
+    expect(prompt).toContain("intent");
+    expect(prompt).toContain("clarification");
   });
 });

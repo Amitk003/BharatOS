@@ -3,12 +3,14 @@ import {
   JourneySchema,
   OpportunitySchema,
   DocumentValidationSchema,
+  MessageAnalysisSchema,
   type JourneyPlan,
   type OpportunityResult,
   type ClassifiedIntent,
   type ClarifyingQuestions,
   type DetectedLanguage,
   type DocumentValidation,
+  type MessageAnalysis,
 } from "./schemas";
 import {
   SYSTEM_PROMPT,
@@ -17,6 +19,7 @@ import {
   getJourneyPrompt,
   getOpportunityPrompt,
   getLanguageDetectionPrompt,
+  getMessageAnalysisPrompt,
 } from "./prompts";
 
 function getClient(): Groq | null {
@@ -126,6 +129,15 @@ export async function classifyIntent(
 ): Promise<ClassifiedIntent> {
   const prompt = getIntentPrompt(message);
   return generateJSON<ClassifiedIntent>(prompt);
+}
+
+export async function analyzeMessage(
+  message: string,
+  profile: Record<string, unknown>
+): Promise<MessageAnalysis> {
+  const prompt = getMessageAnalysisPrompt(message, profile);
+  const result = await generateJSON<MessageAnalysis>(prompt);
+  return MessageAnalysisSchema.parse(result);
 }
 
 export async function getClarifyingQuestions(

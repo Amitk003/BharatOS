@@ -43,6 +43,12 @@ export function getJourneyPrompt(
   goal: string,
   profile: Record<string, unknown>
 ): string {
+  const lang = String(profile.language || "en").toLowerCase();
+  let langInstruction = "Use English for all task titles and descriptions.";
+  if (lang !== "en" && lang !== "english") {
+    langInstruction = `Translate the output appropriately. Generate the journey title, task titles, and task descriptions in the citizen's preferred language matching language code "${lang}" (e.g. Hindi if "hi", Tamil if "ta", Bengali if "bn", Marathi if "mr", etc.).`;
+  }
+
   return `Generate a step-by-step civic journey for the following goal.
 
 User goal: "${goal}"
@@ -52,18 +58,18 @@ Create a practical journey with ordered tasks that the citizen needs to complete
 
 Return valid JSON matching this exact schema:
 {
-  "title": string (short journey name, in English),
+  "title": string (short journey name, in the user's preferred language),
   "tasks": [
     {
-      "title": string (task name, e.g. "Get Aadhaar Updated"),
-      "description": string (brief what to do),
+      "title": string (task name, e.g. "Get Aadhaar Updated", in the user's preferred language),
+      "description": string (brief what to do, in the user's preferred language),
       "order": number (starting from 1),
-      "documentType": string | null (set to document name if task requires a document like "Aadhaar", "PAN", "Income Certificate", etc., otherwise null)
+      "documentType": string | null (set to document name if task requires a document like "Aadhaar", "PAN", "Income Certificate", etc., otherwise null. ALWAYS write the documentType name in English or common name like "Aadhaar", "PAN", "Income Certificate")
     }
   ]
 }
 
-Generate 3-8 tasks. Be realistic about Indian government processes. Use English for all task titles and descriptions.`;
+Generate 3-8 tasks. Be realistic about Indian government processes. ${langInstruction}`;
 }
 
 export function getDocumentPrompt(
@@ -118,4 +124,39 @@ Return valid JSON matching this exact schema:
 }
 
 Return at least 3 schemes if the profile has enough info. Use realistic estimates.`;
+}
+
+export function getMessageAnalysisPrompt(
+  message: string,
+  profile: Record<string, unknown>
+): string {
+  return `Analyze the following user message and citizen profile.
+User message: "${message}"
+Citizen profile: ${JSON.stringify(profile, null, 2)}
+
+Perform three analysis steps:
+1. Language Detection: Detect the language of the user message. Provide the full language name (e.g. "Hindi", "English"), ISO 2-letter languageCode (e.g. "hi", "en", "ta"), and set shouldTranslate to true if the language is not English.
+2. Intent Classification: Classify the intent of the message into one of:
+   - "JOURNEY_GOAL": User wants to accomplish a real-life civic goal (e.g. start a dairy farm, register a shop, apply for passport, register a business, etc.).
+   - "DOCUMENT_QUERY": User asking about document requirements or uploading files.
+   - "COMPLAINT": User reporting a public/infrastructure issue (e.g. pothole, road damage, water supply, electricity cut, garbage).
+   - "SCHEME_ELIGIBILITY": User asking what benefits, opportunities or schemes they qualify for.
+   - "GENERAL": Normal conversation, greeting, or any other query.
+3. Clarification Check: If the intent is "JOURNEY_GOAL" or "SCHEME_ELIGIBILITY", determine if you need more profile details (like age, location state, occupation, land ownership, monthly income) before you can construct a journey plan or find eligible schemes. If the profile already has locationState and age, set needsClarification to false. If you need more info, ask up to 4 essential clarifying questions (short, e.g., "Your age?", "Your state?"). Otherwise, set needsClarification to false and questions to [].
+
+Return valid JSON matching this exact structure:
+{
+  "language": {
+    "name": string,
+    "languageCode": string,
+    "shouldTranslate": boolean
+  },
+  "intent": "JOURNEY_GOAL" | "DOCUMENT_QUERY" | "COMPLAINT" | "SCHEME_ELIGIBILITY" | "GENERAL",
+  "clarification": {
+    "needsClarification": boolean,
+    "questions": string[]
+  }
+}
+
+Respond ONLY with the JSON object, no other text.`;
 }
