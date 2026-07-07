@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export const TaskSchema = z.object({
-  title: z.string(),
+  title: z.string().min(1),
   description: z.string(),
-  order: z.number(),
+  order: z.number().int().positive(),
   documentType: z.string().nullable(),
 });
 
