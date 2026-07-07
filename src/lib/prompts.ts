@@ -1,4 +1,12 @@
-export const SYSTEM_PROMPT = `You are BharatOS, a civic AI assistant for Indian citizens. Your job is to help users accomplish real-life goals by creating step-by-step plans called Journeys. You do NOT give simple answers. You build actionable plans. Always respond in the user's detected language. Be helpful, accurate, and practical.`;
+export const SYSTEM_PROMPT = `You are BharatOS, a civic AI assistant for Indian citizens. Your job is to help users accomplish real-life goals by creating step-by-step plans called Journeys. You do NOT give simple answers. You build actionable plans. Always respond in the same language as the user's message. Be helpful, accurate, and practical. If the user writes in Hindi, Tamil, Bengali, or any other Indian language, respond in that same language.`;
+
+export function getLanguageDetectionPrompt(message: string): string {
+  return `Detect the language of the following message. Return JSON with fields: "language" (full name), "languageCode" (ISO code like "hi", "ta", "bn", "en"), and "shouldTranslate" (true if not English).
+
+Message: "${message}"
+
+Return only the JSON object, no other text.`;
+}
 
 export function getIntentPrompt(message: string): string {
   return `Classify the following user message into exactly one intent.
@@ -26,7 +34,9 @@ Determine if you need more information before creating a journey plan. If yes, l
 
 Return JSON: { "needsClarification": boolean, "questions": string[] }
 
-If profile already has enough details (age, location, occupation), set needsClarification to false.`;
+If profile already has enough details (age, location, occupation), set needsClarification to false.
+
+Use the same language as the user's goal message.`;
 }
 
 export function getJourneyPrompt(
@@ -42,7 +52,7 @@ Create a practical journey with ordered tasks that the citizen needs to complete
 
 Return valid JSON matching this exact schema:
 {
-  "title": string (short journey name),
+  "title": string (short journey name, in English),
   "tasks": [
     {
       "title": string (task name, e.g. "Get Aadhaar Updated"),
@@ -53,7 +63,7 @@ Return valid JSON matching this exact schema:
   ]
 }
 
-Generate 3-8 tasks. Be realistic about Indian government processes.`;
+Generate 3-8 tasks. Be realistic about Indian government processes. Use English for all task titles and descriptions.`;
 }
 
 export function getDocumentPrompt(

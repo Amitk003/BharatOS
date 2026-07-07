@@ -62,3 +62,11 @@ export const ClarifyingQuestionSchema = z.object({
 });
 
 export type ClarifyingQuestions = z.infer<typeof ClarifyingQuestionSchema>;
+
+export const LanguageSchema = z.object({
+  language: z.string(),
+  languageCode: z.string(),
+  shouldTranslate: z.boolean(),
+});
+
+export type DetectedLanguage = z.infer<typeof LanguageSchema>;

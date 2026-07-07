@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   classifyIntent,
+  detectLanguage,
   getClarifyingQuestions,
   generateJourney,
   generateChatResponse,
@@ -26,6 +27,14 @@ export async function POST(req: NextRequest) {
     const user = await getOrCreateUser(sessionId);
 
     let profile = await getProfileData(user.id);
+
+    const langInfo = await detectLanguage(message);
+
+    if (langInfo.shouldTranslate) {
+      await createOrUpdateProfile(user.id, {
+        language: langInfo.languageCode,
+      });
+    }
 
     const intent = await classifyIntent(message);
 
@@ -107,8 +116,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: response,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat API error:", error);
+
+    if (error?.code === "NO_API_KEY") {
+      return NextResponse.json(
+        {
+          message:
+            "BharatOS AI is not configured yet. Please set the GEMINI_API_KEY environment variable to enable AI features. You can get a key from https://aistudio.google.com",
+        },
+        { status: 200 }
+      );
+    }
+
     return NextResponse.json(
       { message: "I encountered an error. Please try again." },
       { status: 500 }

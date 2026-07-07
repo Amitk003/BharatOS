@@ -5,11 +5,13 @@ import {
   OpportunitySchema,
   IntentSchema,
   ClarifyingQuestionSchema,
+  LanguageSchema,
   type JourneyPlan,
   type DocumentValidation,
   type OpportunityResult,
   type ClassifiedIntent,
   type ClarifyingQuestions,
+  type DetectedLanguage,
 } from "./schemas";
 import {
   SYSTEM_PROMPT,
@@ -18,40 +20,78 @@ import {
   getJourneyPrompt,
   getDocumentPrompt,
   getOpportunityPrompt,
+  getLanguageDetectionPrompt,
 } from "./prompts";
 
-const genAI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || "",
-});
+function getClient(): GoogleGenAI | null {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key === "your-google-gemini-api-key") {
+    return null;
+  }
+  return new GoogleGenAI({ apiKey: key });
+}
 
 const MODEL = "gemini-2.0-flash";
+
+class AIServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly code: "NO_API_KEY" | "API_ERROR" | "PARSE_ERROR"
+  ) {
+    super(message);
+    this.name = "AIServiceError";
+  }
+}
 
 async function generateJSON<T>(
   prompt: string,
   systemInstruction?: string
 ): Promise<T> {
-  const response = await genAI.models.generateContent({
-    model: MODEL,
-    contents: prompt,
-    config: {
-      systemInstruction: systemInstruction || SYSTEM_PROMPT,
-      temperature: 0.2,
-      topP: 0.8,
-      topK: 40,
-    },
-  });
-
-  const text = response.text;
-  if (!text) {
-    throw new Error("Empty response from AI");
+  const client = getClient();
+  if (!client) {
+    throw new AIServiceError(
+      "AI service is not configured. Please set the GEMINI_API_KEY environment variable.",
+      "NO_API_KEY"
+    );
   }
 
-  const cleaned = text
-    .replace(/```json\n?/gi, "")
-    .replace(/```\n?/g, "")
-    .trim();
+  try {
+    const response = await client.models.generateContent({
+      model: MODEL,
+      contents: prompt,
+      config: {
+        systemInstruction: systemInstruction || SYSTEM_PROMPT,
+        temperature: 0.2,
+        topP: 0.8,
+        topK: 40,
+      },
+    });
 
-  return JSON.parse(cleaned);
+    const text = response.text;
+    if (!text) {
+      throw new AIServiceError("Empty response from AI", "API_ERROR");
+    }
+
+    const cleaned = text
+      .replace(/```json\n?/gi, "")
+      .replace(/```\n?/g, "")
+      .trim();
+
+    return JSON.parse(cleaned);
+  } catch (error) {
+    if (error instanceof AIServiceError) throw error;
+    throw new AIServiceError(
+      "Failed to get response from AI service",
+      "API_ERROR"
+    );
+  }
+}
+
+export async function detectLanguage(
+  message: string
+): Promise<DetectedLanguage> {
+  const prompt = getLanguageDetectionPrompt(message);
+  return generateJSON<DetectedLanguage>(prompt);
 }
 
 export async function classifyIntent(
@@ -99,23 +139,38 @@ export async function generateChatResponse(
   userMessage: string,
   context: string
 ): Promise<string> {
-  const response = await genAI.models.generateContent({
-    model: MODEL,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            text: `Context:\n${context}\n\nUser message: ${userMessage}\n\nRespond helpfully and conversationally. Keep response under 100 words.`,
-          },
-        ],
-      },
-    ],
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      temperature: 0.7,
-    },
-  });
+  const client = getClient();
+  if (!client) {
+    throw new AIServiceError(
+      "AI service is not configured. Please set the GEMINI_API_KEY environment variable.",
+      "NO_API_KEY"
+    );
+  }
 
-  return response.text || "I could not process that. Please try again.";
+  try {
+    const response = await client.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Context:\n${context}\n\nUser message: ${userMessage}\n\nRespond helpfully and conversationally in the same language as the user message. Keep response under 100 words.`,
+            },
+          ],
+        },
+      ],
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        temperature: 0.7,
+      },
+    });
+
+    return response.text || "I could not process that. Please try again.";
+  } catch {
+    throw new AIServiceError(
+      "Failed to get response from AI service",
+      "API_ERROR"
+    );
+  }
 }

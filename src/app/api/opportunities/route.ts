@@ -16,11 +16,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ opportunities: null });
     }
 
-    const opportunities = await findOpportunities(profile as Record<string, unknown>);
+    const opportunities = await findOpportunities(
+      profile as Record<string, unknown>
+    );
 
     return NextResponse.json({ opportunities });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Opportunities error:", error);
+
+    if (error?.code === "NO_API_KEY") {
+      return NextResponse.json({ opportunities: null });
+    }
+
     return NextResponse.json({ opportunities: null });
   }
 }
