@@ -1,6 +1,7 @@
-import { prisma } from "./prisma";
+import { getPrisma } from "./prisma";
 
 export async function getOrCreateUser(phone: string) {
+  const prisma = await getPrisma();
   let user = await prisma.user.findUnique({ where: { phone } });
   if (!user) {
     user = await prisma.user.create({
@@ -11,6 +12,7 @@ export async function getOrCreateUser(phone: string) {
 }
 
 export async function getUserWithProfile(userId: string) {
+  const prisma = await getPrisma();
   return prisma.user.findUnique({
     where: { id: userId },
     include: { profile: true },
@@ -31,6 +33,7 @@ export async function createOrUpdateProfile(
     language?: string;
   }
 ) {
+  const prisma = await getPrisma();
   return prisma.citizenProfile.upsert({
     where: { userId },
     create: { userId, ...data },
@@ -39,6 +42,7 @@ export async function createOrUpdateProfile(
 }
 
 export async function getProfileData(userId: string) {
+  const prisma = await getPrisma();
   const profile = await prisma.citizenProfile.findUnique({
     where: { userId },
   });
@@ -65,6 +69,7 @@ export async function createJourney(
   description: string | null,
   tasks: { title: string; description: string; order: number; documentType: string | null }[]
 ) {
+  const prisma = await getPrisma();
   return prisma.journey.create({
     data: {
       userId,
@@ -84,6 +89,7 @@ export async function createJourney(
 }
 
 export async function getUserJourneys(userId: string) {
+  const prisma = await getPrisma();
   return prisma.journey.findMany({
     where: { userId },
     include: { tasks: { orderBy: { order: "asc" } } },
@@ -92,6 +98,7 @@ export async function getUserJourneys(userId: string) {
 }
 
 export async function updateTaskStatus(taskId: string, status: string) {
+  const prisma = await getPrisma();
   return prisma.task.update({
     where: { id: taskId },
     data: { status },
@@ -99,6 +106,7 @@ export async function updateTaskStatus(taskId: string, status: string) {
 }
 
 export async function recalculateJourneyProgress(journeyId: string) {
+  const prisma = await getPrisma();
   const journey = await prisma.journey.findUnique({
     where: { id: journeyId },
     include: { tasks: true },
@@ -118,6 +126,7 @@ export async function createDocument(
   type: string,
   fileUrl: string
 ) {
+  const prisma = await getPrisma();
   return prisma.document.create({
     data: { userId, name, type, fileUrl },
   });
@@ -129,6 +138,7 @@ export async function updateDocumentStatus(
   extractedData?: string,
   errorDetails?: string
 ) {
+  const prisma = await getPrisma();
   return prisma.document.update({
     where: { id: documentId },
     data: {
@@ -141,6 +151,7 @@ export async function updateDocumentStatus(
 }
 
 export async function getUserDocuments(userId: string) {
+  const prisma = await getPrisma();
   return prisma.document.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
@@ -153,6 +164,7 @@ export async function createCivicCase(
   description: string | null,
   category: string | null
 ) {
+  const prisma = await getPrisma();
   const timeline = JSON.stringify([
     {
       date: new Date().toISOString(),
@@ -166,6 +178,7 @@ export async function createCivicCase(
 }
 
 export async function getUserCases(userId: string) {
+  const prisma = await getPrisma();
   return prisma.civicCase.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
