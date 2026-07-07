@@ -42,12 +42,12 @@ export async function POST(req: NextRequest) {
         const val = String(a).trim();
         if (!val) continue;
         const qLower = q.toLowerCase();
-        if (qLower.includes("age")) { const n = parseInt(val); if (!isNaN(n)) updateData.age = n; }
-        else if (qLower.includes("location") || qLower.includes("state") || qLower.includes("city") || qLower.includes("district") || qLower.includes("village")) { updateData.locationState = val; }
-        else if (qLower.includes("occupation") || qLower.includes("job") || qLower.includes("work") || qLower.includes("profession") || qLower.includes("do you do")) { updateData.occupation = val; }
-        else if (qLower.includes("income") || qLower.includes("salary") || qLower.includes("earn") || qLower.includes("monthly")) { const n = parseFloat(val.replace(/[^0-9.]/g, "")); if (!isNaN(n)) updateData.monthlyIncome = n; }
-        else if (qLower.includes("land") || qLower.includes("acre") || qLower.includes("hectare")) { updateData.hasLand = true; }
-        else if (qLower.includes("education") || qLower.includes("study") || qLower.includes("school")) { updateData.education = val; }
+        if (qLower.includes("age") || qLower.includes("umar") || qLower.includes("उम्र") || qLower.includes("vay") || qLower.includes("वय") || qLower.includes("old")) { const n = parseInt(val); if (!isNaN(n)) updateData.age = n; }
+        else if (qLower.includes("location") || qLower.includes("state") || qLower.includes("city") || qLower.includes("district") || qLower.includes("village") || qLower.includes("shahar") || qLower.includes("raajya") || qLower.includes("गांव") || qLower.includes("शहर") || qLower.includes("राज्य") || qLower.includes("jila") || qLower.includes("zilla")) { updateData.locationState = val; }
+        else if (qLower.includes("occupation") || qLower.includes("job") || qLower.includes("work") || qLower.includes("profession") || qLower.includes("do you do") || qLower.includes("pesha") || qLower.includes("पेशा") || qLower.includes("kaam") || qLower.includes("काम") || qLower.includes("vyavsay") || qLower.includes("व्यवसाय")) { updateData.occupation = val; }
+        else if (qLower.includes("income") || qLower.includes("salary") || qLower.includes("earn") || qLower.includes("monthly") || qLower.includes("aay") || qLower.includes("आय") || qLower.includes("kamai") || qLower.includes("कमाई") || qLower.includes("varshik")) { const n = parseFloat(val.replace(/[^0-9.]/g, "")); if (!isNaN(n)) updateData.monthlyIncome = n; }
+        else if (qLower.includes("land") || qLower.includes("acre") || qLower.includes("hectare") || qLower.includes("zameen") || qLower.includes("ज़मीन") || qLower.includes("जमीन") || qLower.includes("bhoomi") || qLower.includes("भूमि") || qLower.includes("khet") || qLower.includes("खेत")) { updateData.hasLand = true; }
+        else if (qLower.includes("education") || qLower.includes("study") || qLower.includes("school") || qLower.includes("shiksha") || qLower.includes("शिक्षा") || qLower.includes("padhai") || qLower.includes("पढ़ाई") || qLower.includes("college") || qLower.includes("vidya")) { updateData.education = val; }
       }
       if (Object.keys(updateData).length > 0) {
         await createOrUpdateProfile(user.id, updateData as any);

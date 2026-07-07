@@ -35,9 +35,18 @@ export function JourneyBoard() {
     loadJourneys();
   }, []);
 
+  function getSessionId(): string | null {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem("bharat-session");
+  }
+
   async function loadJourneys() {
     try {
-      const res = await fetch("/api/journey");
+      const sessionId = getSessionId();
+      if (!sessionId) return;
+      const res = await fetch("/api/journey", {
+        headers: { "x-session-id": sessionId },
+      });
       const data = await res.json();
       setJourneys(data.journeys || []);
     } catch {

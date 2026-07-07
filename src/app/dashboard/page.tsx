@@ -18,29 +18,57 @@ export default function DashboardPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [totalBenefit, setTotalBenefit] = useState(0);
   const [loadingOpp, setLoadingOpp] = useState(true);
+  const [activeJourneys, setActiveJourneys] = useState(0);
+  const [docCount, setDocCount] = useState(0);
+  const [caseCount, setCaseCount] = useState(0);
 
   useEffect(() => {
-    loadOpportunities();
+    loadDashboardData();
   }, []);
 
-  async function loadOpportunities() {
-    try {
-      const sessionId = sessionStorage.getItem("bharat-session");
-      if (!sessionId) return;
-
-      const res = await fetch("/api/opportunities", {
-        headers: { "x-session-id": sessionId },
-      });
-      const data = await res.json();
-      if (data.opportunities) {
-        setOpportunities(data.opportunities.schemes || []);
-        setTotalBenefit(data.opportunities.totalEstimatedBenefit || 0);
-      }
-    } catch {
-      console.error("Failed to load opportunities");
-    } finally {
+  async function loadDashboardData() {
+    const sessionId = sessionStorage.getItem("bharat-session");
+    if (!sessionId) {
       setLoadingOpp(false);
+      return;
     }
+
+    await Promise.allSettled([
+      (async () => {
+        const res = await fetch("/api/opportunities", {
+          headers: { "x-session-id": sessionId },
+        });
+        const data = await res.json();
+        if (data.opportunities) {
+          setOpportunities(data.opportunities.schemes || []);
+          setTotalBenefit(data.opportunities.totalEstimatedBenefit || 0);
+        }
+      })(),
+      (async () => {
+        const res = await fetch("/api/journey", {
+          headers: { "x-session-id": sessionId },
+        });
+        const data = await res.json();
+        const j = data.journeys || [];
+        setActiveJourneys(j.filter((j: any) => j.status !== "COMPLETED").length);
+      })(),
+      (async () => {
+        const res = await fetch("/api/documents", {
+          headers: { "x-session-id": sessionId },
+        });
+        const data = await res.json();
+        setDocCount((data.documents || []).length);
+      })(),
+      (async () => {
+        const res = await fetch("/api/cases", {
+          headers: { "x-session-id": sessionId },
+        });
+        const data = await res.json();
+        setCaseCount((data.cases || []).length);
+      })(),
+    ]);
+
+    setLoadingOpp(false);
   }
 
   return (
@@ -129,15 +157,15 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-400">Active Journeys</span>
-                  <span className="text-sm font-medium text-white">0</span>
+                  <span className="text-sm font-medium text-white">{activeJourneys}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-400">Documents</span>
-                  <span className="text-sm font-medium text-white">0</span>
+                  <span className="text-sm font-medium text-white">{docCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-400">Cases</span>
-                  <span className="text-sm font-medium text-white">0</span>
+                  <span className="text-sm font-medium text-white">{caseCount}</span>
                 </div>
               </div>
             </CardContent>
