@@ -90,10 +90,7 @@ export async function POST(req: NextRequest) {
 
     if (intent.intent === "SCHEME_ELIGIBILITY") {
       if (!profile) {
-        const clarification = await getClarifyingQuestions(
-          message,
-          {}
-        );
+        const clarification = await getClarifyingQuestions(message, {});
         return NextResponse.json({
           message: clarification.questions.join("\n"),
           clarifyingQuestions: clarification.questions,
@@ -129,9 +126,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const detail = error?.detail || error?.message || "Unknown error";
+    console.error("Chat error detail:", detail);
+
     return NextResponse.json(
-      { message: "I encountered an error. Please try again." },
-      { status: 500 }
+      {
+        message: `AI service error: ${detail}. Check that your GEMINI_API_KEY is valid and the model name is correct.`,
+      },
+      { status: 200 }
     );
   }
 }

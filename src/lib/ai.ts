@@ -36,7 +36,8 @@ const MODEL = "gemini-2.0-flash";
 class AIServiceError extends Error {
   constructor(
     message: string,
-    public readonly code: "NO_API_KEY" | "API_ERROR" | "PARSE_ERROR"
+    public readonly code: "NO_API_KEY" | "API_ERROR" | "PARSE_ERROR",
+    public readonly detail?: string
   ) {
     super(message);
     this.name = "AIServiceError";
@@ -80,10 +81,36 @@ async function generateJSON<T>(
     return JSON.parse(cleaned);
   } catch (error) {
     if (error instanceof AIServiceError) throw error;
+    const msg = error instanceof Error ? error.message : String(error);
     throw new AIServiceError(
       "Failed to get response from AI service",
-      "API_ERROR"
+      "API_ERROR",
+      msg
     );
+  }
+}
+
+export async function testConnection(): Promise<{
+  ok: boolean;
+  message: string;
+}> {
+  const client = getClient();
+  if (!client) {
+    return { ok: false, message: "GEMINI_API_KEY is not set in environment" };
+  }
+  try {
+    const response = await client.models.generateContent({
+      model: MODEL,
+      contents: "Say just OK if you can read this",
+      config: { temperature: 0.1 },
+    });
+    if (response.text) {
+      return { ok: true, message: "Connected. Response: " + response.text };
+    }
+    return { ok: false, message: "Empty response from API" };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { ok: false, message: "API error: " + msg };
   }
 }
 
@@ -166,11 +193,16 @@ export async function generateChatResponse(
       },
     });
 
-    return response.text || "I could not process that. Please try again.";
-  } catch {
+    return (
+      response.text ||
+      "I could not process that. Please try again."
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
     throw new AIServiceError(
       "Failed to get response from AI service",
-      "API_ERROR"
+      "API_ERROR",
+      msg
     );
   }
 }
